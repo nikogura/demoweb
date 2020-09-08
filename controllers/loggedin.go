@@ -24,13 +24,13 @@ func (c *LoggedInController) Get() {
 	fatoken := c.GetSession("fatoken")
 	logs.Debug("Time is %d", time.Now().Unix())
 
-	baseurl, err := url.Parse(authHost)
+	baseurl, err := url.Parse(beego.AppConfig.String("authHost"))
 	if err != nil {
-		logs.Error("failed to parse %s as a URL:%s", authHost, err)
+		logs.Error("failed to parse %s as a URL:%s", beego.AppConfig.String("authHost"), err)
 		c.Abort("500")
 	}
 	httpClient := http.Client{}
-	var auth = fusionauth.NewClient(&httpClient, baseurl, apiKey)
+	var auth = fusionauth.NewClient(&httpClient, baseurl, beego.AppConfig.String("apiKey"))
 
 	tok, ok := fatoken.(*fusionauth.AccessToken)
 	if ok {
@@ -44,7 +44,7 @@ func (c *LoggedInController) Get() {
 
 		if resp.StatusCode != 200 {
 			logs.Debug("Token expired.  Attempting refresh.")
-			accessToken, oauthErr, err := auth.ExchangeRefreshTokenForAccessToken(tok.RefreshToken, clientID, clientSecret, "", "")
+			accessToken, oauthErr, err := auth.ExchangeRefreshTokenForAccessToken(tok.RefreshToken, beego.AppConfig.String("clientId"), beego.AppConfig.String("clientSecret"), "", "")
 
 			if err != nil {
 				logs.Error("Error exchanging access code for token: %s", err)
@@ -68,9 +68,9 @@ func (c *LoggedInController) Get() {
 			c.SetSession("fatoken", accessToken)
 		}
 
-		res, err := http.PostForm(fmt.Sprintf("%s/oauth2/introspect", authHost),
+		res, err := http.PostForm(fmt.Sprintf("%s/oauth2/introspect", beego.AppConfig.String("authHost")),
 			url.Values{
-				"client_id": {clientID},
+				"client_id": {beego.AppConfig.String("clientId")},
 				"token":     {tok.AccessToken},
 			})
 

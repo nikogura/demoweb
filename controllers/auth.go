@@ -13,12 +13,6 @@ import (
 	"net/url"
 )
 
-const clientID = "b843a55c-4f3f-43d0-b176-674abcbeffb5"
-const authHost = "http://localhost:9011"
-const apiKey = "ToPgrT9sJcfzSALDIlepaFZi6rtjl3TZaRmhkDqqZ4M"
-const redirectUrl = "http://localhost:9000/oauth-callback"
-const clientSecret = "LoYgAuihAfUPuTYmYQOMHR1nOpxSgiJhtEGt5GWS9Cs"
-
 var globalSessions *session.Manager
 
 type AuthController struct {
@@ -26,16 +20,16 @@ type AuthController struct {
 }
 
 func (c *AuthController) Get() {
-	baseurl, err := url.Parse(authHost)
+	baseurl, err := url.Parse(beego.AppConfig.String("authHost"))
 	if err != nil {
-		logs.Error("failed to parse %s as a URL:%s", authHost, err)
+		logs.Error("failed to parse %s as a URL:%s", beego.AppConfig.String("authHost"), err)
 		c.Abort("500")
 	}
 
 	httpClient := http.Client{}
-	var auth = fusionauth.NewClient(&httpClient, baseurl, apiKey)
+	var auth = fusionauth.NewClient(&httpClient, baseurl, beego.AppConfig.String("apiKey"))
 
-	accessToken, oauthErr, err := auth.ExchangeOAuthCodeForAccessToken(c.GetString("code"), clientID, clientSecret, redirectUrl)
+	accessToken, oauthErr, err := auth.ExchangeOAuthCodeForAccessToken(c.GetString("code"), beego.AppConfig.String("clientId"), beego.AppConfig.String("clientSecret"), beego.AppConfig.String("redirectUrl"))
 	if err != nil {
 		logs.Error("Error exchanging access code for token: %s", err)
 		c.Abort("500")
@@ -53,13 +47,13 @@ func (c *AuthController) Get() {
 }
 
 func (c *AuthController) ManualOauth2() {
-	res, err := http.PostForm(fmt.Sprintf("%s/oauth2/token", authHost),
+	res, err := http.PostForm(fmt.Sprintf("%s/oauth2/token", beego.AppConfig.String("authHost")),
 		url.Values{
-			"client_id":     {clientID},
-			"client_secret": {clientSecret},
+			"client_id":     {beego.AppConfig.String("clientId")},
+			"client_secret": {beego.AppConfig.String("clientSecret")},
 			"code":          {c.GetString("code")},
 			"grant_type":    {"authorization_code"},
-			"redirect_uri":  {redirectUrl},
+			"redirect_uri":  {beego.AppConfig.String("redirectUrl")},
 		})
 
 	defer res.Body.Close()

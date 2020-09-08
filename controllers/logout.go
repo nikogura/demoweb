@@ -15,5 +15,5 @@ func (c *LogoutController) Get() {
 	// remove app session token
 	c.DelSession("fatoken")
 	// perform logout on FA
-	c.Redirect(fmt.Sprintf("%s/oauth2/logout?client_id=%s", authHost, clientID), 302)
+	c.Redirect(fmt.Sprintf("%s/oauth2/logout?client_id=%s", beego.AppConfig.String("authHost"), beego.AppConfig.String("clientId")), 302)
 }
