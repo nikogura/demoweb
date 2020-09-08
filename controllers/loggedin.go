@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/FusionAuth/go-client/pkg/fusionauth"
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
 	"github.com/davecgh/go-spew/spew"
@@ -10,6 +11,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 const AUTH_LANDING_TXT = "This is the authenticated landing page."
@@ -19,59 +21,96 @@ type LoggedInController struct {
 }
 
 func (c *LoggedInController) Get() {
+	fatoken := c.GetSession("fatoken")
+	logs.Debug("Time is %d", time.Now().Unix())
 
-	token := c.GetSession("token")
+	baseurl, err := url.Parse(authHost)
+	if err != nil {
+		logs.Error("failed to parse %s as a URL:%s", authHost, err)
+		c.Abort("500")
+	}
+	httpClient := http.Client{}
+	var auth = fusionauth.NewClient(&httpClient, baseurl, apiKey)
 
-	logs.Debug("Token:")
-	spew.Dump(token)
+	tok, ok := fatoken.(*fusionauth.AccessToken)
+	if ok {
+		// tok has AccessToken, IdToken, and RefreshToken
 
-	if token != nil {
-		tok, ok := token.(string)
-		if ok {
-			logs.Debug(fmt.Sprintf("Token: %s", tok))
+		logs.Debug(fmt.Sprintf("User ID: %s", tok.UserId))
+		logs.Debug(fmt.Sprintf("AccessToken: %s", tok.AccessToken))
+		logs.Debug(fmt.Sprintf("IDToken: %s", tok.IdToken))
+		logs.Debug(fmt.Sprintf("RefreshToken: %s", tok.RefreshToken))
 
-			res, err := http.PostForm(fmt.Sprintf("%s/oauth2/introspect", authHost),
-				url.Values{
-					"client_id": {clientID},
-					"token":     {tok},
-				})
+		resp, err := auth.ValidateJWT(tok.AccessToken)
+		if err != nil {
+			logs.Error("Error validating JWT: %s", err)
+			c.Redirect("http://localhost:9000/", 302)
+		}
 
-			defer res.Body.Close()
+		if resp.StatusCode != 200 {
+			logs.Debug("Token expired.  Attempting refresh.")
+			accessToken, oauthErr, err := auth.ExchangeRefreshTokenForAccessToken(tok.RefreshToken, clientID, clientSecret, "", "")
 
-			resBytes, err := ioutil.ReadAll(res.Body)
 			if err != nil {
-				err = errors.Wrapf(err, "failed reading response body")
-				logs.Error(err)
+				logs.Error("Error exchanging access code for token: %s", err)
+				// kill the app session
+				c.DelSession("fatoken")
 				c.Abort("500")
-				return
+			}
+			if oauthErr != nil {
+				logs.Error("Oauth Error in refresh attempt: %s", oauthErr.Error)
+				spew.Dump(oauthErr)
+				// kill the app session
+				c.DelSession("fatoken")
+				c.Redirect("http://localhost:9000/", 302)
+				//c.Abort("500")
 			}
 
-			logs.Debug(fmt.Sprintf("%s", resBytes))
+			logs.Debug("Token Refreshed")
+			// set token object as the new token
+			tok = accessToken
+			// persist it to the app session
+			c.SetSession("fatoken", accessToken)
+		}
 
-			responseData := make(map[string]interface{})
+		res, err := http.PostForm(fmt.Sprintf("%s/oauth2/introspect", authHost),
+			url.Values{
+				"client_id": {clientID},
+				"token":     {tok.AccessToken},
+			})
 
-			err = json.Unmarshal(resBytes, &responseData)
-			if err != nil {
-				err = errors.Wrapf(err, "failed parsing response body")
-				logs.Error(err)
-				c.Abort("500")
-				return
-			}
+		defer res.Body.Close()
 
-			logs.Debug("introspection result:")
-			spew.Dump(responseData)
-
-			content := fmt.Sprintf("%s is logged in - %s", responseData["email"], AUTH_LANDING_TXT)
-
-			c.Data["Content"] = content
-			c.Data["Url"] = "http://localhost:9000/logout"
-			c.Data["Label"] = "Logout"
-			c.Data["Title"] = "Logged In Page"
-
-			c.TplName = "index.tpl"
+		resBytes, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			err = errors.Wrapf(err, "failed reading response body")
+			logs.Error(err)
+			c.Abort("500")
 			return
 		}
+
+		responseData := make(map[string]interface{})
+
+		err = json.Unmarshal(resBytes, &responseData)
+		if err != nil {
+			err = errors.Wrapf(err, "failed parsing response body")
+			logs.Error(err)
+			c.Abort("500")
+			return
+		}
+
+		content := fmt.Sprintf("%s is logged in - %s", responseData["email"], AUTH_LANDING_TXT)
+
+		c.Data["Content"] = content
+		c.Data["Url"] = "http://localhost:9000/logout"
+		c.Data["Label"] = "Logout"
+		c.Data["Title"] = "Logged In Page"
+
+		c.TplName = "index.tpl"
+		return
+
 	}
 
+	// if we have no token at all, redirect to landing page
 	c.Redirect("http://localhost:9000/", 302)
 }

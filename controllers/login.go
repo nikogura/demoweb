@@ -12,5 +12,5 @@ type LoginController struct {
 }
 
 func (c *LoginController) Get() {
-	c.Redirect(fmt.Sprintf("%s/oauth2/authorize?client_id=%s&redirect_uri=%s&response_type=code", authHost, clientID, redirectUrl), 302)
+	c.Redirect(fmt.Sprintf("%s/oauth2/authorize?client_id=%s&redirect_uri=%s&response_type=code&scope=openid offline_access", authHost, clientID, redirectUrl), 302)
 }

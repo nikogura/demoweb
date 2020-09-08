@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/FusionAuth/go-client/pkg/fusionauth"
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
 	"github.com/astaxie/beego/session"
@@ -26,8 +27,36 @@ type AuthController struct {
 }
 
 func (c *AuthController) Get() {
-	logs.Debug("Auth controller firing")
+	baseurl, err := url.Parse(authHost)
+	if err != nil {
+		logs.Error("failed to parse %s as a URL:%s", authHost, err)
+		c.Abort("500")
+	}
 
+	httpClient := http.Client{}
+	var auth = fusionauth.NewClient(&httpClient, baseurl, apiKey)
+
+	accessToken, oauthErr, err := auth.ExchangeOAuthCodeForAccessToken(c.GetString("code"), clientID, clientSecret, redirectUrl)
+	if err != nil {
+		logs.Error("Error exchanging access code for token: %s", err)
+		c.Abort("500")
+	}
+	if oauthErr != nil {
+		logs.Error("Oauth Error: %s", oauthErr.Error)
+		c.Abort("500")
+	}
+
+	logs.Debug("Access Token:")
+	spew.Dump(accessToken)
+
+	c.SetSession("fatoken", accessToken)
+
+	//c.ManualOauth2()
+
+	c.Redirect("/loggedin", 302)
+}
+
+func (c *AuthController) ManualOauth2() {
 	res, err := http.PostForm(fmt.Sprintf("%s/oauth2/token", authHost),
 		url.Values{
 			"client_id":     {clientID},
@@ -47,8 +76,6 @@ func (c *AuthController) Get() {
 		return
 	}
 
-	logs.Debug(fmt.Sprintf("%s", resBytes))
-
 	responseData := make(map[string]interface{})
 
 	err = json.Unmarshal(resBytes, &responseData)
@@ -61,9 +88,4 @@ func (c *AuthController) Get() {
 
 	// save token to session
 	c.SetSession("token", responseData["access_token"])
-
-	fmt.Printf("Response from FA:")
-	spew.Dump(responseData)
-
-	c.Redirect("/loggedin", 302)
 }
