@@ -9,7 +9,7 @@
 		<title> {{.Title}} </title>
 	</head>
 	<body>
-	    <table width="100%">
+	    <table align="center">
 	        <tr>
 	            <th> Path </th>
 	            <th> Purpose </th>

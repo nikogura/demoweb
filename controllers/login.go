@@ -5,12 +5,11 @@ import (
 	"github.com/astaxie/beego"
 )
 
-//   res.redirect(`http://localhost:${config.fusionAuthPort}/oauth2/authorize?client_id=${config.clientID}&redirect_uri=${config.redirectURI}&response_type=code`);
-
 type LoginController struct {
 	beego.Controller
 }
 
+// Get Responds to GET on /login.  Redirects to FA.  Note the 'scope' parameters.  Without these we don't get ID or refresh tokens from FA.
 func (c *LoginController) Get() {
 	c.Redirect(fmt.Sprintf("%s/oauth2/authorize?client_id=%s&redirect_uri=%s&response_type=code&scope=openid offline_access", authHost, clientID, redirectUrl), 302)
 }

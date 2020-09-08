@@ -34,12 +34,7 @@ func (c *LoggedInController) Get() {
 
 	tok, ok := fatoken.(*fusionauth.AccessToken)
 	if ok {
-		// tok has AccessToken, IdToken, and RefreshToken
-
 		logs.Debug(fmt.Sprintf("User ID: %s", tok.UserId))
-		logs.Debug(fmt.Sprintf("AccessToken: %s", tok.AccessToken))
-		logs.Debug(fmt.Sprintf("IDToken: %s", tok.IdToken))
-		logs.Debug(fmt.Sprintf("RefreshToken: %s", tok.RefreshToken))
 
 		resp, err := auth.ValidateJWT(tok.AccessToken)
 		if err != nil {

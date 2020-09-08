@@ -7,7 +7,6 @@ import (
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
 	"github.com/astaxie/beego/session"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/pkg/errors"
 	"io/ioutil"
 	"net/http"
@@ -45,9 +44,6 @@ func (c *AuthController) Get() {
 		logs.Error("Oauth Error: %s", oauthErr.Error)
 		c.Abort("500")
 	}
-
-	logs.Debug("Access Token:")
-	spew.Dump(accessToken)
 
 	c.SetSession("fatoken", accessToken)
 

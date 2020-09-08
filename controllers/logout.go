@@ -12,7 +12,8 @@ type LogoutController struct {
 
 func (c *LogoutController) Get() {
 	logs.Debug("Logout controller firing")
+	// remove app session token
 	c.DelSession("fatoken")
-	// perform logout
+	// perform logout on FA
 	c.Redirect(fmt.Sprintf("%s/oauth2/logout?client_id=%s", authHost, clientID), 302)
 }
